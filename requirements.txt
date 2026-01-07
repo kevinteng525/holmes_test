@@ -1,0 +1,5 @@
+
+mmengine>=0.8.0
+click>=8.0.0
+docker>=6.0.0
+termcolor

@@ -67,7 +67,7 @@ class DockerEnvironment:
 
         # 设置环境变量，标记已经在 Docker 中，防止无限递归
         environment = {
-            'HOLMES_IN_DOCKER': '1',
+            'IN_DOCKER': '1',
             'PYTHONPATH': '/workspace'
         }
         

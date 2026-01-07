@@ -5,8 +5,9 @@ from core.registry import STEPS
 
 logger = logging.getLogger(__name__)
 
+
 @STEPS.register_module()
-class DummyCompiler(BaseStep):
+class Compiler(BaseStep):
     def process(self, context: TestContext):
         logger.info("Dummy Compiler running...")
         model_path = context.get('model_path')
@@ -14,8 +15,9 @@ class DummyCompiler(BaseStep):
         # 写入编译产物
         context.set('engine_path', model_path + '.engine')
 
+
 @STEPS.register_module()
-class DummyRunner(BaseStep):
+class Runner(BaseStep):
     def process(self, context: TestContext):
         logger.info("Dummy Runner inferencing...")
         engine_path = context.get('engine_path')

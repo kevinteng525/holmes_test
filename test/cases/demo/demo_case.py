@@ -1,4 +1,3 @@
-
 labels = ['demo', 'daily']
 
 pipeline = [
@@ -6,10 +5,10 @@ pipeline = [
     dict(type='ModelLoader', uri='oss://bucket/resnet50.onnx'),
     
     # 步骤 2: 编译 (Dummy)
-    dict(type='DummyCompiler'), 
+    dict(type='dummy.Compiler'),
     
     # 步骤 3: 推理 (Dummy)
-    dict(type='DummyRunner'),
+    dict(type='dummy.Runner'),
     
     # 步骤 4: 对比结果
     dict(type='NumericsComparator', rtol=1e-3),

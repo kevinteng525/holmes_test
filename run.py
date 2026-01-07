@@ -5,14 +5,16 @@ import click
 from mmengine.config import Config
 from core.runner import CaseRunner
 from core.context import TestContext
-from core.loader import SuiteLoader
 from core.env_manager import DockerEnvironment
+from core.registry import STEPS
 
-# 自动注册插件
-# 实际项目中可能通过 entry_points 或 importlib 动态加载
-import holmes.plugins.steps.common
-import holmes.plugins.engines.dummy_engine
-import holmes.plugins.collectors.common
+# 重要：注册插件 到 Registry 中，不能删
+import holmes.plugins.steps.sample
+import holmes.plugins.dummy.engine
+import holmes.plugins.collectors.sample
+
+# Debug: 打印当前注册的所有步骤，确认 ModelLoader 是否存在
+print(f"DEBUG: Registered STEPS keys: {list(STEPS.module_dict.keys())}")
 
 # 配置日志
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -67,7 +69,7 @@ def plan(plan_path):
 
         # 2. 检查环境配置 & Docker 启动逻辑
         env_cfg = plan_cfg.get('environment')
-        in_docker = os.environ.get('HOLMES_IN_DOCKER') == '1'
+        in_docker = os.environ.get('IN_DOCKER') == '1'
 
         if env_cfg and env_cfg.get('type') == 'docker' and not in_docker:
             logger.info("Docker environment detected. Preparing to run in container...")

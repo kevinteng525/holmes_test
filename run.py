@@ -1,10 +1,12 @@
 import sys
+import os
 import logging
 import click
 from mmengine.config import Config
 from core.runner import CaseRunner
 from core.context import TestContext
 from core.loader import SuiteLoader
+from core.env_manager import DockerEnvironment
 
 # 自动注册插件
 # 实际项目中可能通过 entry_points 或 importlib 动态加载
@@ -63,10 +65,36 @@ def plan(plan_path):
         # 1. 加载 Plan 配置
         plan_cfg = Config.fromfile(plan_path)
 
-        # 2. 初始化 Runner
+        # 2. 检查环境配置 & Docker 启动逻辑
+        env_cfg = plan_cfg.get('environment')
+        in_docker = os.environ.get('HOLMES_IN_DOCKER') == '1'
+
+        if env_cfg and env_cfg.get('type') == 'docker' and not in_docker:
+            logger.info("Docker environment detected. Preparing to run in container...")
+            workspace_root = os.getcwd()
+            env_manager = DockerEnvironment(env_cfg, workspace_root)
+
+            # 准备镜像
+            env_manager.ensure_image()
+
+            # 构建容器内命令：复用当前执行的参数
+            # 注意：这里假设容器内的 python 路径和宿主机一致，或者在 PATH 中
+            # 简单起见，我们重新构造命令
+            cmd_args = ['python', 'run.py', 'plan', plan_path]
+            # 如果有其他参数需要透传，这里可能需要更复杂的解析，目前只处理最基本的
+
+            # 启动容器运行
+            exit_code = env_manager.run(cmd_args)
+            sys.exit(exit_code)
+
+        # 3. 如果在容器内 或 没有配置 Docker 环境，则直接运行
+        if in_docker:
+            logger.info("Running INSIDE Docker container.")
+
+        # 4. 初始化 Runner
         runner = PlanRunner(plan_cfg)
 
-        # 3. 执行
+        # 5. 执行
         success = runner.run()
 
         if not success:

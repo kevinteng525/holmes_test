@@ -25,6 +25,8 @@ class ModelLoader(BaseStep):
         time.sleep(0.5)
         # 将模型路径写入 Context
         context.set('model_path', '/tmp/mock_model.onnx')
+        model_attr = dict(target_device=target_device, precision=precision)
+        context.set('model_attr', model_attr)
         logger.info("Model loaded.")
 
 

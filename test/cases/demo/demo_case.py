@@ -5,7 +5,11 @@ pipeline = [
     dict(type='ModelLoader', uri='oss://bucket/resnet50.onnx'),
     
     # 步骤 2: 编译 (Dummy)
-    dict(type='dummy.Compiler'),
+    dict(type='dummy.Compiler',
+         dump_IR={
+             'need_dump':True,
+             'pass': ['FusePadConv', 'FuseConvConv']
+         }),
     
     # 步骤 3: 推理 (Dummy)
     dict(type='dummy.Runner'),

@@ -11,8 +11,10 @@ logger = logging.getLogger(__name__)
 class Compiler(BaseStep):
     def process(self, context: TestContext):
         logger.info("Dummy Compiler running...")
+        dump_ir = getattr(self, 'dump_IR', 'unknown')
         model_path = context.get('model_path')
-        logger.info(f"Compiling model: {model_path}")
+        model_attr = context.get('model_attr')
+        logger.info(f"Compiling model: {model_path}, model_attr: {model_attr}, dump_ir: {dump_ir}")
         # 写入编译产物
         context.set('engine_path', model_path + '.engine')
 

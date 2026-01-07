@@ -8,3 +8,6 @@ STEPS = Registry('steps')
 # ENGINES: 用于注册推理引擎的特定实现 (如果有更高层的抽象，当前设计主要靠 Steps)
 # 暂时保留，以备扩展
 ENGINES = Registry('engines')
+
+# COLLECTORS: 用于注册结果收集器插件
+COLLECTORS = Registry('collectors')

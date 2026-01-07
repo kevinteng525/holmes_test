@@ -1,7 +1,7 @@
-# 通用自动化测试框架详细设计文档 (Universal Test Framework)
+# 设计文档
 
 ## 1. 设计目标
-构建一套**通用、配置驱动、插件化**的自动化测试底座，通过加载不同的插件包（如“推理引擎测试插件包”），实现对不同被测对象（推理引擎、Web 服务、数据管道等）的自动化测试。
+构建一套**通用、配置驱动、插件化**的自动化测试底座，通过加载不同的插件包（如“Holmes测试插件包”），实现对不同被测对象的自动化测试。
 
 - **通用核心 (Common Core)**：仅负责调度、配置解析、插件管理和结果收集，不包含具体业务逻辑。
 - **业务插件化 (Domain Plugins)**：推理引擎测试逻辑（如 Compile, Infer）全部封装为插件。
@@ -32,6 +32,7 @@ graph TD
         Compile[编译插件]
         Infer[推理插件]
         Compare[对比插件]
+        Collect[结果收集插件]
     end
 
     Docker -->|提供运行时| PlanRunner
@@ -104,10 +105,10 @@ class MyEngineCompiler(BaseStep):
 **目录结构建议：**
 ```text
 /environments
-    /cuda11
+    /holmes:torch2.6-cuda12.3-ubuntu22.04-py310
         Dockerfile
         requirements.txt
-    /android_cross_compile
+    /holmes:torch2.4-cuda12.3-ubuntu22.04-py310
         Dockerfile
 ```
 
@@ -135,15 +136,15 @@ global_config = dict(
 
 # 包含的套件
 suites = [
-    'suites/resnet_suite.py',
-    'suites/bert_suite.py'
+    'test/suites/resnet_suite.py',
+    'test/suites/bert_suite.py'
 ]
 ```
 
-### 5.2 Test Suite 配置 (suites/resnet_suite.py)
+### 5.2 Test Suite 配置 (test/suites/resnet_suite.py)
 ```python
 # 扫描路径
-case_root = 'cases/resnet'
+case_root = 'test/cases/resnet'
 
 # 过滤策略：只运行带有 'daily' 标签 且 不带有 'flaky' 标签的 case
 selector = dict(
@@ -152,7 +153,7 @@ selector = dict(
 )
 ```
 
-### 5.3 Test Case 配置 (cases/resnet/resnet50_fp16.py)
+### 5.3 Test Case 配置 (test/cases/resnet/resnet50_fp16.py)
 ```python
 # Case 级别的标签定义
 labels = ['daily', 'performance', 'vision']
@@ -169,7 +170,11 @@ pipeline = [
     dict(type='MyEngineRunner'),
     
     # 步骤 4: 结果对比
-    dict(type='NumericsComparator', rtol=1e-3)
+    dict(type='NumericsComparator', rtol=1e-3),
+
+    # 步骤 5: 结果收集 (Console, JSON)
+    dict(type='ConsoleCollector'),
+    dict(type='JsonResultCollector', output_file='result.json')
 ]
 ```
 
@@ -184,10 +189,10 @@ pipeline = [
 
 ```bash
 # 运行 Daily 测试计划
-python run.py plan plans/daily_plan.py
+python run.py plan test/plans/daily_plan.py
 
 # 覆盖部分全局变量 (可选)
-python run.py plan plans/daily_plan.py --options global_config.target_device=A100
+python run.py plan test/plans/daily_plan.py --options global_config.target_device=A100
 ```
 
 ### 6.2 单例模式 (Case Mode) - 用于本地开发调试
@@ -195,13 +200,13 @@ python run.py plan plans/daily_plan.py --options global_config.target_device=A10
 
 ```bash
 # 默认在本地环境直接运行（不启动 Docker，适合快速调试逻辑）
-python run.py case cases/resnet/resnet50_fp16.py
+python run.py case test/cases/resnet/resnet50_fp16.py
 
 # 指定在 Docker 环境中运行（挂载当前代码）
-python run.py case cases/resnet/resnet50_fp16.py --env environments/cuda11
+python run.py case test/cases/resnet/resnet50_fp16.py --env holmes:torch2.6-cuda12.3-ubuntu22.04-py310
 
 # 覆盖 Context 参数
-python run.py case cases/resnet/resnet50_fp16.py --options compile_flags="-O0 -g"
+python run.py case test/cases/resnet/resnet50_fp16.py --options compile_flags="-O0 -g"
 ```
 
 ---
@@ -213,6 +218,7 @@ python run.py case cases/resnet/resnet50_fp16.py --options compile_flags="-O0 -g
 ```python
 # 核心定义
 STEPS = Registry('steps')
+COLLECTORS = Registry('collectors')
 
 # 扩展：推理引擎插件包 (holmes_inference_plugins)
 @STEPS.register_module()
@@ -221,6 +227,11 @@ class MyEngineCompiler(BaseStep): ...
 # 扩展：Web 测试插件包 (holmes_web_plugins)
 @STEPS.register_module()
 class HttpRequestStep(BaseStep): ...
+
+# 扩展：结果收集插件
+@STEPS.register_module() # 注册到 STEPS 以便在 Pipeline 中直接使用
+@COLLECTORS.register_module()
+class JsonResultCollector(BaseCollector): ...
 ```
 
 ## 8. 总结

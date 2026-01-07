@@ -8,9 +8,10 @@ Holmes Test 是一个通用、配置驱动、插件化的自动化测试框架�
 - `core/`: 核心框架 (Context, Runner, Registry)
 - `holmes/`: Holmes测试插件
   - `plugins/`: 插件实现 (Steps, Engines)
-- `cases/`: 测试用例定义 (Config files)
-- `suites/`: 测试套件 (逻辑分组)
-- `plans/`: 测试计划 (执行入口配置)
+- `test/`: 具体测试
+  - `cases/`: 测试用例 (Config files)
+  - `suites/`: 测试套件 (逻辑分组)
+  - `plans/`: 测试计划 (执行入口配置)
 - `environments/`: 环境配置 (Dockerfile)
 - `run.py`: 命令行入口
 
@@ -25,12 +26,12 @@ pip install -r requirements.txt
 
 运行单个 Case：
 ```bash
-python run.py case cases/demo/demo_case.py
+python run.py case test/cases/demo/demo_case.py
 ```
 
 运行 Test Plan：
 ```bash
-python run.py plan plans/demo_plan.py
+python run.py plan test/plans/demo_plan.py
 ```
 
 ### 2. Docker 运行
@@ -42,13 +43,13 @@ docker build -t holmes-test:latest -f environments/base/Dockerfile .
 
 在 Docker 中运行 Sample Plan：
 ```bash
-docker run -v $(pwd):/workspace holmes-test:latest plan plans/sample_plan.py
+docker run -v $(pwd):/workspace holmes-test:latest plan test/plans/sample_plan.py
 ```
 
 ## 编写测试
 
 ### Case 定义
-参考 `cases/demo/demo_case.py`。一个 Case 包含一组配置和一个 Pipeline（步骤列表）。
+参考 `test/cases/demo/demo_case.py`。一个 Case 包含一组配置和一个 Pipeline（步骤列表）。
 
 ### Step 定义
 参考 `holmes/plugins/steps/common.py`。继承 `BaseStep` 并注册到 `STEPS`。

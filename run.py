@@ -10,6 +10,7 @@ from core.loader import SuiteLoader
 # 实际项目中可能通过 entry_points 或 importlib 动态加载
 import holmes.plugins.steps.common
 import holmes.plugins.engines.dummy_engine
+import holmes.plugins.collectors.common
 
 # 配置日志
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')

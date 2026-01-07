@@ -18,3 +18,22 @@ class BaseStep(ABC):
         :param context: 测试上下文，包含配置和中间数据
         """
         pass
+
+
+class BaseCollector(BaseStep):
+    """
+    所有结果收集器的基类。
+    继承自 BaseStep，使其可以直接作为 Pipeline 的一部分运行。
+    """
+    @abstractmethod
+    def collect(self, context: TestContext):
+        """
+        收集结果的具体实现。
+        """
+        pass
+
+    def process(self, context: TestContext):
+        """
+        统一实现 process 方法，调用 collect。
+        """
+        self.collect(context)

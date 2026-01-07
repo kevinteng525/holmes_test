@@ -9,5 +9,5 @@ global_config = dict(
 )
 
 suites = [
-    'suites/demo_suite.py'
+    'test/suites/demo_suite.py'
 ]

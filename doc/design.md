@@ -83,7 +83,8 @@ class TestContext:
         self.data = {} 
         
         # 3. 运行时状态
-        self.status = "PENDING"
+        # 使用 CaseStatus 枚举 (PENDING, RUNNING, SUCCESS, FAILED, ERROR)
+        self.status = CaseStatus.PENDING
 ```
 
 **Step 实现示例：**
@@ -155,6 +156,13 @@ selector = dict(
 
 ### 5.3 Test Case 配置 (test/cases/resnet/resnet50_fp16.py)
 ```python
+# Case 元数据 (Metadata)
+metadata = dict(
+    name='ResNet50 FP16 Inference',
+    ID='CASE-001',
+    creator='QA-Team'
+)
+
 # Case 级别的标签定义
 labels = ['daily', 'performance', 'vision']
 
@@ -207,6 +215,13 @@ python run.py case test/cases/resnet/resnet50_fp16.py --env holmes:torch2.6-cuda
 
 # 覆盖 Context 参数
 python run.py case test/cases/resnet/resnet50_fp16.py --options compile_flags="-O0 -g"
+```
+
+### 6.3 列表模式 (List Cases) - 用于查看 Plan 内容
+列出指定 Plan 中包含的所有 Case 文件路径。
+
+```bash
+python run.py list-cases test/plans/daily_plan.py
 ```
 
 ---

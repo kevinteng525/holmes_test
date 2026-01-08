@@ -12,12 +12,13 @@ from core.registry import STEPS
 import holmes.plugins.steps.sample
 import holmes.plugins.dummy.engine
 import holmes.plugins.collectors.sample
+import holmes.plugins.collectors.plan_summary
 
 # Debug: 打印当前注册的所有步骤，确认 ModelLoader 是否存在
 print(f"DEBUG: Registered STEPS keys: {list(STEPS.module_dict.keys())}")
 
 # 配置日志
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(filename)s:%(lineno)d - %(levelname)s - %(message)s')
 logger = logging.getLogger('HolmesCLI')
 
 @click.group()
@@ -104,6 +105,40 @@ def plan(plan_path):
             
     except Exception as e:
         logger.error(f"Plan execution failed: {e}")
+        sys.exit(1)
+
+@cli.command()
+@click.argument('plan_path')
+def list_cases(plan_path):
+    """列出 Plan 中包含的所有 Case"""
+    logger.info(f"Listing cases for Plan: {plan_path}")
+
+    try:
+        # 1. 加载 Plan 配置
+        plan_cfg = Config.fromfile(plan_path)
+        suites = plan_cfg.get('suites', [])
+
+        logger.info(f"Found {len(suites)} suites in plan.")
+
+        from core.loader import SuiteLoader
+
+        total_cases = 0
+        for suite_path in suites:
+            print(f"\nSuite: {suite_path}")
+            try:
+                case_files = SuiteLoader.load_cases_from_suite(suite_path)
+                if not case_files:
+                     print("  (No cases found)")
+                for case_file in case_files:
+                    print(f"  - {case_file}")
+                    total_cases += 1
+            except Exception as e:
+                logger.error(f"Failed to load suite {suite_path}: {e}")
+
+        print(f"\nTotal Cases: {total_cases}")
+
+    except Exception as e:
+        logger.error(f"Failed to list cases: {e}")
         sys.exit(1)
 
 if __name__ == '__main__':

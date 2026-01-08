@@ -1,3 +1,4 @@
+
 # Holmes Test Framework
 
 Holmes Test 是一个通用、配置驱动、插件化的自动化测试框架，支持各种测试场景，目前优先支持Holmes推理引擎测试。
@@ -34,6 +35,11 @@ python run.py case test/cases/demo/demo_case.py
 python run.py plan test/plans/demo_plan.py
 ```
 
+列出 Plan 中的 Cases：
+```bash
+python run.py list-cases test/plans/demo_plan.py
+```
+
 ### 2. Docker 运行
 
 构建镜像：
@@ -49,7 +55,27 @@ docker run -v $(pwd):/workspace holmes-test:latest plan test/plans/sample_plan.p
 ## 编写测试
 
 ### Case 定义
-参考 `test/cases/demo/demo_case.py`。一个 Case 包含一组配置和一个 Pipeline（步骤列表）。
+参考 `test/cases/demo/demo_case.py`。一个 Case 包含一组配置（Metadata, Labels）和一个 Pipeline（步骤列表）。
+
+**示例：**
+```python
+# 1. 定义元数据 (必需)
+metadata = dict(
+    name='Demo Test Case',
+    ID='CASE-001',
+    creator='YourName'
+)
+
+# 2. 定义标签 (用于过滤)
+labels = ['demo', 'daily']
+
+# 3. 定义执行流水线
+pipeline = [
+    dict(type='ModelLoader', uri='oss://bucket/model.onnx'),
+    dict(type='MyEngineRunner'),
+    dict(type='NumericsComparator', rtol=1e-3)
+]
+```
 
 ## 插件开发指南
 

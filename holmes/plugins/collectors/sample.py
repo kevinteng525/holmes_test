@@ -3,6 +3,7 @@ import logging
 from core.interface import BaseCollector
 from core.context import TestContext
 from core.registry import STEPS, COLLECTORS
+from core.status import CaseStatus
 
 logger = logging.getLogger(__name__)
 
@@ -36,8 +37,11 @@ class JsonResultCollector(BaseCollector):
         output_file = getattr(self, 'output_file', 'result.json')
         logger.info(f"Collecting results to {output_file}...")
         
+        # 确保 status 转换为字符串
+        status_str = context.status.value if isinstance(context.status, CaseStatus) else str(context.status)
+
         result_data = {
-            "status": context.status,
+            "status": status_str,
             "data": {k: str(v) for k, v in context.data.items() if not k.startswith('_')}
         }
         

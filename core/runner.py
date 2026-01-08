@@ -2,8 +2,10 @@
 import logging
 from typing import List, Dict
 from mmengine.config import Config
-from core.registry import STEPS
+from core.registry import STEPS, COLLECTORS
+from core.interface import BaseCollector
 from core.context import TestContext
+from core.status import CaseStatus
 
 logger = logging.getLogger(__name__)
 
@@ -16,22 +18,64 @@ class CaseRunner:
 
     def run(self, pipeline_cfg: List[Dict]):
         logger.info(f"Starting Case Execution...")
+        execution_failed = False
+        exception_to_raise = None
+
         for step_cfg in pipeline_cfg:
+            step_type = step_cfg.get('type')
+
+            # 构建 Step
             try:
-                # 使用 Registry 构建 Step 实例
-                # step_cfg 必须包含 'type' 字段
-                step_type = step_cfg.get('type')
-                logger.info(f"Running Step: {step_type}")
-                
+                # 尝试从 STEPS 构建，如果是 Collector 也可能在 STEPS 中（假设 Collector 也是一种 Step）
+                # 或者如果有独立的 COLLECTORS registry，也可以尝试从那里构建，但通常统一在 STEPS 或通过配置区分
+                # 这里假设所有步骤都在 STEPS 中注册，或者我们需要判断是否是 Collector
                 step = STEPS.build(step_cfg)
+            except Exception as e:
+                logger.error(f"Failed to build step {step_type}: {e}")
+                execution_failed = True
+                exception_to_raise = e
+                self.context.status = CaseStatus.ERROR # 构建失败视为 ERROR
+                break # 构建都失败了，后续无法继续
+
+            is_collector = isinstance(step, BaseCollector)
+
+            # 如果之前的步骤失败了，且当前步骤不是 Collector，则跳过
+            if execution_failed and not is_collector:
+                logger.warning(f"Skipping Step: {step_type} due to previous failure.")
+                continue
+
+            # 如果尚未失败，或者当前是 Collector，则执行
+            try:
+                # 在执行 Collector 之前，更新 Status
+                if is_collector:
+                    if execution_failed:
+                        self.context.status = CaseStatus.FAILED
+                    elif self.context.status == CaseStatus.PENDING:
+                         # 如果还没失败且状态仍为 PENDING，说明目前为止是成功的
+                         pass
+
+                logger.info(f"Running Step: {step_type}")
                 step.process(self.context)
             except Exception as e:
                 logger.error(f"Step {step_cfg.get('type')} failed: {e}")
-                self.context.status = "FAILED"
-                raise e
-        
-        self.context.status = "SUCCESS"
-        logger.info("Case Execution Completed Successfully.")
+                # 如果是 Collector 失败，记录日志但不中断后续 Collector（通常 Collector 失败不应影响主流程状态，但需记录）
+                # 如果是普通 Step 失败，标记失败
+                if not is_collector:
+                    execution_failed = True
+                    exception_to_raise = e
+                    self.context.status = CaseStatus.FAILED
+                else:
+                    logger.error(f"Collector {step_type} failed, but continuing...")
+
+        if not execution_failed:
+             # 如果状态仍然是 PENDING，说明没有步骤显式设置状态，默认为 SUCCESS
+             if self.context.status == CaseStatus.PENDING:
+                 self.context.status = CaseStatus.SUCCESS
+             logger.info("Case Execution Completed Successfully.")
+        else:
+             logger.error("Case Execution Failed.")
+             if exception_to_raise:
+                 raise exception_to_raise
 
 from core.loader import SuiteLoader
 
@@ -51,6 +95,7 @@ class PlanRunner:
         """
         total_cases = 0
         failed_cases = 0
+        results = [] # 收集所有 case 的结果
 
         logger.info(f"Starting Plan Execution with {len(self.suites)} suites...")
 
@@ -65,17 +110,76 @@ class PlanRunner:
 
             for case_file in case_files:
                 logger.info(f"  -> Running Case: {case_file}")
+
+                # 预先定义 case_result，确保即使加载配置失败也能记录基本信息
+                case_result = {
+                    'case_file': case_file,
+                    'suite_path': suite_path,
+                    'metadata': {},
+                    'status': CaseStatus.UNKNOWN,
+                    'context': None
+                }
+
                 try:
                     case_cfg = Config.fromfile(case_file)
+
+                    # 提取 Metadata (直接从配置字典中读取)
+                    case_result['metadata'] = case_cfg.get('metadata', {})
+
                     # 注入 Global Config
                     ctx = TestContext(global_config=self.global_config, case_config=case_cfg)
                     runner = CaseRunner(ctx)
                     runner.run(case_cfg.pipeline)
-                    total_cases += 1
+
+                    # 记录成功结果
+                    case_result['status'] = ctx.status
+                    case_result['context'] = ctx
+
                 except Exception as e:
                     logger.error(f"  -> Case Failed: {case_file} | Error: {e}")
                     failed_cases += 1
+                    # 记录失败结果
+                    case_result['status'] = CaseStatus.FAILED
+                    # ctx 可能在 runner.run 中已经创建，尝试获取
+                    # 注意：如果 Config.fromfile 失败，ctx 可能不存在
+                    # 这里简单处理，如果 ctx 存在则记录
+                    if 'ctx' in locals():
+                         case_result['context'] = ctx
+                finally:
+                    total_cases += 1
+                    results.append(case_result)
+
+        # 执行 Plan 级别的 Collectors
+        self._run_plan_collectors(results)
 
         logger.info("="*30)
         logger.info(f"Plan Execution Summary: Total {total_cases}, Failed {failed_cases}")
         return failed_cases == 0
+
+    def _run_plan_collectors(self, results: List[Dict]):
+        """
+        运行 Plan 级别的 Collectors
+        """
+        plan_collectors_cfg = self.plan_cfg.get('plan_collectors', [])
+        if not plan_collectors_cfg:
+            return
+
+        logger.info("Running Plan Collectors...")
+        # 创建一个临时的 Context 用于 Plan Collector，包含所有 Case 的结果
+        plan_context = TestContext(global_config=self.global_config)
+        plan_context.set('case_results', results)
+        plan_context.set('plan_config', self.plan_cfg)
+
+        for collector_cfg in plan_collectors_cfg:
+            try:
+                collector_type = collector_cfg.get('type')
+                logger.info(f"Running Plan Collector: {collector_type}")
+                # 优先从 COLLECTORS 构建，如果没有则尝试 STEPS
+                if collector_type in COLLECTORS:
+                    collector = COLLECTORS.build(collector_cfg)
+                else:
+                    collector = STEPS.build(collector_cfg)
+
+                collector.process(plan_context)
+            except Exception as e:
+                logger.error(f"Plan Collector {collector_cfg.get('type')} failed: {e}")

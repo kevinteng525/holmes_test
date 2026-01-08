@@ -1,3 +1,8 @@
+metadata = dict(
+    name='Demo ResNet50 Test',
+    ID='CASE-001',
+    creator='tengkang.teng@alibaba-inc.com'
+)
 labels = ['demo', 'daily']
 
 pipeline = [

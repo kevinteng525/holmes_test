@@ -1,6 +1,7 @@
 
 from typing import Dict, Any, Optional
 from mmengine.config import Config
+from core.status import CaseStatus
 
 class TestContext:
     """
@@ -19,7 +20,7 @@ class TestContext:
         self.data: Dict[str, Any] = {}
         
         # 3. 运行时状态
-        self.status = "PENDING"
+        self.status = CaseStatus.PENDING
 
     def _merge_configs(self, global_cfg: Dict, case_cfg: Dict) -> Dict:
         """简单的配置合并逻辑，Case 覆盖 Global"""

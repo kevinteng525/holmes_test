@@ -25,7 +25,7 @@ def cli():
     """Holmes - 通用自动化测试框架"""
     pass
 
-from holmes.utils import parse_options
+from core.utils import parse_options
 from core.runner import PlanRunner  # Ensure PlanRunner is imported if not already
 
 @cli.command()

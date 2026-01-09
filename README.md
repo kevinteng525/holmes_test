@@ -1,4 +1,3 @@
-
 # Holmes Test Framework
 
 Holmes Test 是一个通用、配置驱动、插件化的自动化测试框架，支持各种测试场景，目前优先支持Holmes推理引擎测试。
@@ -7,7 +6,7 @@ Holmes Test 是一个通用、配置驱动、插件化的自动化测试框架�
 
 
 - `core/`: 核心框架 (Context, Runner, Registry)
-- `holmes/`: Holmes测试插件
+- `sample_project/`: Sample Project测试插件
   - `plugins/`: 插件实现 (Steps, Engines)
 - `test/`: 具体测试
   - `cases/`: 测试用例 (Config files)
@@ -71,9 +70,9 @@ labels = ['demo', 'daily']
 
 # 3. 定义执行流水线
 pipeline = [
-    dict(type='ModelLoader', uri='oss://bucket/model.onnx'),
-    dict(type='MyEngineRunner'),
-    dict(type='NumericsComparator', rtol=1e-3)
+    dict(type='demo.ModelLoader', uri='oss://bucket/model.onnx'),
+    dict(type='demo.MyEngineRunner'),
+    dict(type='demo.NumericsComparator', rtol=1e-3)
 ]
 ```
 
@@ -123,17 +122,17 @@ dict(type='MyStep', param='value')
 from mmengine.registry import Registry
 from core.registry import STEPS  # 导入全局 STEPS 作为父注册表
 
-# 定义属于 'dummy' scope 的注册表，parent 指向 STEPS
-DUMMY_STEPS = Registry('dummy_steps', scope='dummy', parent=STEPS)
+# 定义属于 'demo' scope 的注册表，parent 指向 STEPS
+DEMO_STEPS = Registry('demo_steps', scope='demo', parent=STEPS)
 ```
 
 **注册插件:**
 使用自定义的 Registry 进行注册。
 
 ```python
-from . import DUMMY_STEPS
+from sample_project.plugins import DEMO_STEPS
 
-@DUMMY_STEPS.register_module()
+@DEMO_STEPS.register_module()
 class Compiler(BaseStep):
     def process(self, context: TestContext):
         # ...
@@ -144,8 +143,8 @@ class Compiler(BaseStep):
 使用 `scope.ClassName` 的格式进行引用。
 
 ```python
-# 引用 dummy scope 下的 Compiler 类
-dict(type='dummy.Compiler', param='value')
+# 引用 demo scope 下的 Compiler 类
+dict(type='demo.Compiler', param='value')
 ```
 
 **注意：** Scope 名称对大小写敏感，请确保 Config 中的 Scope 前缀与 `Registry(scope='...')` 定义的一致。

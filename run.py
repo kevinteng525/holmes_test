@@ -9,10 +9,10 @@ from core.env_manager import DockerEnvironment
 from core.registry import STEPS
 
 # 重要：注册插件 到 Registry 中，不能删
-import holmes.plugins.steps.sample
-import holmes.plugins.dummy.engine
-import holmes.plugins.collectors.sample
-import holmes.plugins.collectors.plan_summary
+import sample_project.plugins.steps.sample
+import sample_project.plugins.dummy.engine
+import sample_project.plugins.collectors.sample
+import sample_project.plugins.collectors.plan_summary
 
 # Debug: 打印当前注册的所有步骤，确认 ModelLoader 是否存在
 print(f"DEBUG: Registered STEPS keys: {list(STEPS.module_dict.keys())}")

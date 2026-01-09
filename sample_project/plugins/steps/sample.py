@@ -2,13 +2,12 @@ import time
 import logging
 from core.interface import BaseStep
 from core.context import TestContext
-from core.registry import STEPS
+from sample_project.plugins import DEMO_STEPS
 from core.status import CaseStatus
 
 logger = logging.getLogger(__name__)
 
-
-@STEPS.register_module()
+@DEMO_STEPS.register_module()
 class ModelLoader(BaseStep):
     """
     模拟模型加载步骤
@@ -31,7 +30,7 @@ class ModelLoader(BaseStep):
         logger.info("Model loaded.")
 
 
-@STEPS.register_module()
+@DEMO_STEPS.register_module()
 class NumericsComparator(BaseStep):
     """
     模拟数值对比步骤
@@ -60,7 +59,7 @@ class NumericsComparator(BaseStep):
         logger.info(f"Verification passed for output: {output}")
 
 
-@STEPS.register_module()
+@DEMO_STEPS.register_module()
 class SleepStep(BaseStep):
     """
     调试用的休眠步骤

@@ -1,7 +1,7 @@
 # 设计文档
 
 ## 1. 设计目标
-构建一套**通用、配置驱动、插件化**的自动化测试底座，通过加载不同的插件包（如“Holmes测试插件包”），实现对不同被测对象的自动化测试。
+构建一套**通用、配置驱动、插件化**的自动化测试底座，通过加载不同的插件包（如“Sample Project测试插件包”），实现对不同被测对象的自动化测试。
 
 - **通用核心 (Common Core)**：仅负责调度、配置解析、插件管理和结果收集，不包含具体业务逻辑。
 - **业务插件化 (Domain Plugins)**：推理引擎测试逻辑（如 Compile, Infer）全部封装为插件。
@@ -15,24 +15,24 @@
 ```mermaid
 graph TD
     subgraph Infrastructure [基础设施层]
-        Docker[Docker 环境管理]
-        DB[结果数据库]
+        Docker["Docker 环境管理"]
+        DB["结果数据库"]
     end
 
     subgraph Core [通用核心层]
         PlanRunner[Test Plan Runner]
         SuiteLoader[Suite Loader]
         CaseRunner[Case Pipeline Runner]
-        Context[动态 Context (配置+数据)]
-        Registry[全局插件注册中心]
+        Context["动态 Context (配置+数据)"]
+        Registry["全局插件注册中心"]
     end
     
-    subgraph Plugins [业务插件层 (以推理引擎为例)]
-        Prepare[数据准备插件]
-        Compile[编译插件]
-        Infer[推理插件]
-        Compare[对比插件]
-        Collect[结果收集插件]
+    subgraph Plugins ["业务插件层 (以推理引擎为例)"]
+        Prepare["数据准备插件"]
+        Compile["编译插件"]
+        Infer["推理插件"]
+        Compare["对比插件"]
+        Collect["结果收集插件"]
     end
 
     Docker -->|提供运行时| PlanRunner
@@ -72,6 +72,9 @@ graph TD
 Context 不仅是数据黑板，更是配置中心。核心层会自动将 `Test Plan` 和 `Test Case` 中的配置合并注入 Context，供 Step 使用。
 
 ```python
+from core.utils import merge_config
+from core.status import CaseStatus
+
 class TestContext:
     def __init__(self, global_config, case_config):
         # 1. 配置视图 (只读建议)
@@ -89,6 +92,9 @@ class TestContext:
 
 **Step 实现示例：**
 ```python
+from core.interface import BaseStep
+from core.context import TestContext
+
 class MyEngineCompiler(BaseStep):
     def process(self, context: TestContext):
         # 从 Context 配置中灵活读取参数
@@ -169,20 +175,20 @@ labels = ['daily', 'performance', 'vision']
 # 具体的执行 Pipeline
 pipeline = [
     # 步骤 1: 准备数据
-    dict(type='ModelLoader', uri='oss://models/resnet50.onnx'),
+    dict(type='demo.ModelLoader', uri='oss://models/resnet50.onnx'),
     
     # 步骤 2: 编译 (使用 Context 中的 compile_flags)
-    dict(type='MyEngineCompiler'), 
+    dict(type='demo.MyEngineCompiler'), 
     
     # 步骤 3: 推理
-    dict(type='MyEngineRunner'),
+    dict(type='demo.MyEngineRunner'),
     
     # 步骤 4: 结果对比
-    dict(type='NumericsComparator', rtol=1e-3),
+    dict(type='demo.NumericsComparator', rtol=1e-3),
 
     # 步骤 5: 结果收集 (Console, JSON)
-    dict(type='ConsoleCollector'),
-    dict(type='JsonResultCollector', output_file='result.json')
+    dict(type='demo.ConsoleCollector'),
+    dict(type='demo.JsonResultCollector', output_file='result.json')
 ]
 ```
 
@@ -232,11 +238,14 @@ python run.py list-cases test/plans/daily_plan.py
 
 ```python
 # 核心定义
-STEPS = Registry('steps')
-COLLECTORS = Registry('collectors')
+from core.registry import Registry, STEPS, COLLECTORS
+from core.interface import BaseStep, BaseCollector
 
-# 扩展：推理引擎插件包 (holmes_inference_plugins)
-@STEPS.register_module()
+# 扩展 Scope 定义 (在插件包中)
+DEMO_STEPS = Registry('demo_steps', scope='demo', parent=STEPS)
+
+# 扩展：推理引擎插件包 (sample_project plugins)
+@DEMO_STEPS.register_module()
 class MyEngineCompiler(BaseStep): ...
 
 # 扩展：Web 测试插件包 (holmes_web_plugins)
@@ -244,7 +253,7 @@ class MyEngineCompiler(BaseStep): ...
 class HttpRequestStep(BaseStep): ...
 
 # 扩展：结果收集插件
-@STEPS.register_module() # 注册到 STEPS 以便在 Pipeline 中直接使用
+@DEMO_STEPS.register_module() # 注册到 STEPS 以便在 Pipeline 中直接使用
 @COLLECTORS.register_module()
 class JsonResultCollector(BaseCollector): ...
 ```

@@ -1,13 +1,12 @@
 import logging
 from core.interface import BaseStep
 from core.context import TestContext
-from core.registry import STEPS
-from . import DUMMY_STEPS
+from sample_project.plugins import DEMO_STEPS
 
 logger = logging.getLogger(__name__)
 
-
-@DUMMY_STEPS.register_module()
+# 重命名为 DummyCompiler 以避免冲突
+@DEMO_STEPS.register_module(name='DummyCompiler')
 class Compiler(BaseStep):
     def process(self, context: TestContext):
         logger.info("Dummy Compiler running...")
@@ -19,7 +18,8 @@ class Compiler(BaseStep):
         context.set('engine_path', model_path + '.engine')
 
 
-@DUMMY_STEPS.register_module()
+# 重命名为 DummyRunner 以避免冲突
+@DEMO_STEPS.register_module(name='DummyRunner')
 class Runner(BaseStep):
     def process(self, context: TestContext):
         logger.info("Dummy Runner inferencing...")

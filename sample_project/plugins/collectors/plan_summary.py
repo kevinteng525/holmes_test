@@ -1,14 +1,14 @@
 
 import logging
 from typing import List, Dict
-from core.registry import COLLECTORS
+from sample_project.plugins import DEMO_COLLECTORS
 from core.interface import BaseCollector
 from core.context import TestContext
 from core.status import CaseStatus
 
 logger = logging.getLogger(__name__)
 
-@COLLECTORS.register_module()
+@DEMO_COLLECTORS.register_module()
 class PlanSummaryCollector(BaseCollector):
     """
     Plan 级别的结果收集器，用于汇总并打印所有 Case 的执行结果。

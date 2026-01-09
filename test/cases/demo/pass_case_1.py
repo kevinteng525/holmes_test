@@ -6,16 +6,16 @@ metadata = dict(
 labels = ['report_demo']
 
 pipeline = [
-    dict(type='ModelLoader', uri='oss://bucket/resnet50.onnx'),
-    dict(type='dummy.Compiler', 
+    dict(type='demo.ModelLoader', uri='oss://bucket/resnet50.onnx'),
+    dict(type='demo.DummyCompiler',
          dump_IR={
              'need_dump': True,
              'pass': ['FusePadConv', 'FuseConvConv']
          }),
-    dict(type='dummy.Runner'),
-    dict(type='NumericsComparator', rtol=1e-3),
-    dict(type='ConsoleCollector'),
-    dict(type='JsonResultCollector', output_file='pass_case_1_result.json')
+    dict(type='demo.DummyRunner'),
+    dict(type='demo.NumericsComparator', rtol=1e-3),
+    dict(type='demo.ConsoleCollector'),
+    dict(type='demo.JsonResultCollector', output_file='pass_case_1_result.json')
 ]
 
 precision = 'fp32'

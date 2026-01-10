@@ -7,7 +7,10 @@ Holmes Test 是一个通用、配置驱动、插件化的自动化测试框架�
 
 - `core/`: 核心框架 (Context, Runner, Registry)
 - `sample_project/`: Sample Project测试插件
-  - `plugins/`: 插件实现 (Steps, Engines)
+  - `plugins/`: 插件实现
+    - `steps/`: 测试步骤 (Action)
+    - `checkers/`: 结果检查 (Verification)
+    - `collectors/`: 结果收集 (Logging/Reporting)
 - `test/`: 具体测试
   - `cases/`: 测试用例 (Config files)
   - `suites/`: 测试套件 (逻辑分组)
@@ -37,6 +40,9 @@ python run.py plan test/plans/demo_plan.py
 列出 Plan 中的 Cases：
 ```bash
 python run.py list-cases test/plans/demo_plan.py
+
+# 导出为 CSV 文件
+python run.py list-cases test/plans/demo_plan.py --csv output.csv
 ```
 
 ### 2. Docker 运行
@@ -106,12 +112,24 @@ class MyStep(BaseStep):
         context.set('result', 'done')
 ```
 
-**Pipeline 引用：**
+### 2. Checker 开发
+
+适用于结果验证步骤，框架会自动将其状态重置为 PENDING 并在失败时标记 Case 为 FAILED。
+
 ```python
-dict(type='MyStep', param='value')
+from core.interface import BaseChecker
+from core.context import TestContext
+from core.registry import CHECKERS
+
+@CHECKERS.register_module()
+class MyChecker(BaseChecker):
+    def process(self, context: TestContext):
+        # 验证逻辑
+        if not context.get('result'):
+            raise RuntimeError("Result check failed!")
 ```
 
-### 2. 带 Scope 的 Step 开发
+### 3. 带 Scope 的 Step 开发
 
 适用于特定引擎或模块的插件（如 TensorRT, ONNXRuntime），通过 Scope（命名空间）隔离，避免命名冲突。
 

@@ -13,17 +13,20 @@ class ConsoleCollector(BaseCollector):
     """
     将测试结果输出到控制台的收集器
     """
-    def collect(self, context: TestContext):
+    def load_context(self, context: TestContext):
+        self.status = context.status
+        self.data = getattr(context, 'data', {})
+
+    def action(self, context: TestContext):
         logger.info("=" * 30)
         logger.info("Test Results Summary")
         logger.info("=" * 30)
-        logger.info(f"Status: {context.status}")
+        logger.info(f"Status: {self.status}")
 
         # 打印 context 中所有非私有属性的数据
-        if hasattr(context, 'data'):
-            for k, v in context.data.items():
-                if not k.startswith('_'):
-                    logger.info(f"{k}: {v}")
+        for k, v in self.data.items():
+            if not k.startswith('_'):
+                logger.info(f"{k}: {v}")
 
         logger.info("=" * 30)
 
@@ -33,16 +36,20 @@ class JsonResultCollector(BaseCollector):
     """
     将测试结果保存为 JSON 文件的收集器
     """
-    def collect(self, context: TestContext):
+    def load_context(self, context: TestContext):
+        self.status = context.status
+        self.data = getattr(context, 'data', {})
+
+    def action(self, context: TestContext):
         output_file = getattr(self, 'output_file', 'result.json')
         logger.info(f"Collecting results to {output_file}...")
 
         # 确保 status 转换为字符串
-        status_str = context.status.value if isinstance(context.status, CaseStatus) else str(context.status)
+        status_str = self.status.value if isinstance(self.status, CaseStatus) else str(self.status)
 
         result_data = {
             "status": status_str,
-            "data": {k: str(v) for k, v in context.data.items() if not k.startswith('_')}
+            "data": {k: str(v) for k, v in self.data.items() if not k.startswith('_')}
         }
 
         try:

@@ -1,5 +1,7 @@
 import sys
 import os
+import json
+import csv
 import logging
 import click
 from mmengine.config import Config
@@ -9,10 +11,7 @@ from core.env_manager import DockerEnvironment
 from core.registry import STEPS
 
 # 重要：注册插件 到 Registry 中，不能删
-import sample_project.plugins.steps.sample
-import sample_project.plugins.dummy.engine
-import sample_project.plugins.collectors.sample
-import sample_project.plugins.collectors.plan_summary
+import sample_project.plugins
 
 # Debug: 打印当前注册的所有步骤，确认 ModelLoader 是否存在
 print(f"DEBUG: Registered STEPS keys: {list(STEPS.module_dict.keys())}")
@@ -109,7 +108,8 @@ def plan(plan_path):
 
 @cli.command()
 @click.argument('plan_path')
-def list_cases(plan_path):
+@click.option('--csv', 'csv_path', help='Dump result to CSV file')
+def list_cases(plan_path, csv_path):
     """列出 Plan 中包含的所有 Case"""
     logger.info(f"Listing cases for Plan: {plan_path}")
 
@@ -117,12 +117,15 @@ def list_cases(plan_path):
         # 1. 加载 Plan 配置
         plan_cfg = Config.fromfile(plan_path)
         suites = plan_cfg.get('suites', [])
+        global_config = plan_cfg.get('global_config', {})
 
         logger.info(f"Found {len(suites)} suites in plan.")
 
         from core.loader import SuiteLoader
 
         total_cases = 0
+        case_data_list = []
+
         for suite_path in suites:
             print(f"\nSuite: {suite_path}")
             try:
@@ -132,10 +135,57 @@ def list_cases(plan_path):
                 for case_file in case_files:
                     print(f"  - {case_file}")
                     total_cases += 1
+
+                    if csv_path:
+                        try:
+                            # 加载 Case 详情用于导出
+                            case_cfg = Config.fromfile(case_file)
+                            metadata = case_cfg.get('metadata', {})
+
+                            # 收集数据
+                            case_data_list.append({
+                                'case ID': metadata.get('ID', ''),
+                                'name': metadata.get('name', ''),
+                                'suite': suite_path,
+                                'case path': case_file,
+                                'global config': json.dumps(global_config, ensure_ascii=False)
+                            })
+                        except Exception as e:
+                            logger.error(f"Failed to load details for case {case_file}: {e}")
+                            # 即使加载失败也记录基本信息
+                            case_data_list.append({
+                                'case ID': 'ERROR',
+                                'name': 'ERROR',
+                                'suite': suite_path,
+                                'case path': case_file,
+                                'global config': json.dumps(global_config, ensure_ascii=False)
+                            })
+
             except Exception as e:
                 logger.error(f"Failed to load suite {suite_path}: {e}")
 
         print(f"\nTotal Cases: {total_cases}")
+
+        # 如果指定了 CSV 输出路径，则写入文件
+        if csv_path and case_data_list:
+            try:
+                # 确保目录存在
+                output_dir = os.path.dirname(csv_path)
+                if output_dir and not os.path.exists(output_dir):
+                    os.makedirs(output_dir)
+
+                with open(csv_path, 'w', newline='', encoding='utf-8') as csvfile:
+                    fieldnames = ['case ID', 'name', 'suite', 'case path', 'global config']
+                    writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+
+                    writer.writeheader()
+                    for row in case_data_list:
+                        writer.writerow(row)
+
+                logger.info(f"Successfully dumped cases to {csv_path}")
+                print(f"CSV exported to: {csv_path}")
+            except Exception as e:
+                logger.error(f"Failed to write CSV file: {e}")
 
     except Exception as e:
         logger.error(f"Failed to list cases: {e}")

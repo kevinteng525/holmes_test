@@ -13,51 +13,23 @@ class ModelLoader(BaseStep):
     模拟模型加载步骤
     """
 
-    def process(self, context: TestContext):
-        uri = getattr(self, 'uri', 'unknown')
-
+    def load_context(self, context: TestContext):
         # 从 Context 配置中获取 target_device 和 precision
-        target_device = context.config.get('target_device', 'unknown')
-        precision = context.config.get('precision', 'unknown')
+        self.target_device = context.config.get('target_device', 'unknown')
+        self.precision = context.config.get('precision', 'unknown')
 
-        logger.info(f"Loading model from {uri} (Target: {target_device}, Precision: {precision})...")
+    def action(self, context: TestContext):
+        uri = getattr(self, 'uri', 'unknown')
+        logger.info(f"Loading model from {uri} (Target: {self.target_device}, Precision: {self.precision})...")
         # 模拟加载耗时
         time.sleep(0.5)
-        # 将模型路径写入 Context
-        context.set('model_path', '/tmp/mock_model.onnx')
-        model_attr = dict(target_device=target_device, precision=precision)
-        context.set('model_attr', model_attr)
         logger.info("Model loaded.")
 
-
-@DEMO_STEPS.register_module()
-class NumericsComparator(BaseStep):
-    """
-    模拟数值对比步骤
-    """
-
-    def process(self, context: TestContext):
-        rtol = getattr(self, 'rtol', 1e-5)
-        logger.info(f"Comparing results with rtol={rtol}...")
-
-        output_tensor = context.get('output_tensor')
-        if output_tensor is None:
-            error_msg = "output_tensor not found in context!"
-            logger.error(error_msg)
-            context.status = CaseStatus.FAILED
-            raise RuntimeError(error_msg)
-
-        # 模拟对比逻辑
-        logger.info("Numerics comparison passed.")
-        context.status = CaseStatus.SUCCESS
-
-        output = context.get('output_tensor')
-        if output is None:
-            raise ValueError("No output_tensor found in context!")
-
-        # 模拟对比逻辑
-        logger.info(f"Verification passed for output: {output}")
-
+    def set_context(self, context: TestContext):
+        # 将模型路径写入 Context
+        context.set('model_path', '/tmp/mock_model.onnx')
+        model_attr = dict(target_device=self.target_device, precision=self.precision)
+        context.set('model_attr', model_attr)
 
 @DEMO_STEPS.register_module()
 class SleepStep(BaseStep):
@@ -65,7 +37,7 @@ class SleepStep(BaseStep):
     调试用的休眠步骤
     """
 
-    def process(self, context: TestContext):
+    def action(self, context: TestContext):
         seconds = getattr(self, 'seconds', 1)
         logger.info(f"Sleeping for {seconds} seconds...")
         time.sleep(seconds)

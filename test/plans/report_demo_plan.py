@@ -24,5 +24,5 @@ suites = [
 
 # Plan 级别的收集器
 plan_collectors = [
-    dict(type='PlanSummaryCollector')
+    dict(type='demo.PlanSummaryCollector')
 ]

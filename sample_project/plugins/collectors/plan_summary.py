@@ -1,4 +1,3 @@
-
 import logging
 from typing import List, Dict
 from sample_project.plugins import DEMO_COLLECTORS
@@ -13,20 +12,21 @@ class PlanSummaryCollector(BaseCollector):
     """
     Plan 级别的结果收集器，用于汇总并打印所有 Case 的执行结果。
     """
-    def collect(self, context: TestContext):
-        case_results: List[Dict] = context.get('case_results', [])
-        plan_config = context.get('plan_config', {})
-        
-        total = len(case_results)
-        passed = sum(1 for r in case_results if r.get('status') == CaseStatus.SUCCESS)
-        failed = sum(1 for r in case_results if r.get('status') == CaseStatus.FAILED)
+    def load_context(self, context: TestContext):
+        self.case_results = context.get('case_results', [])
+        self.plan_config = context.get('plan_config', {})
+
+    def action(self, context: TestContext):
+        total = len(self.case_results)
+        passed = sum(1 for r in self.case_results if r.get('status') == CaseStatus.SUCCESS)
+        failed = sum(1 for r in self.case_results if r.get('status') == CaseStatus.FAILED)
         unknown = total - passed - failed
         
         logger.info("\n" + "="*50)
         logger.info("PLAN EXECUTION REPORT")
         logger.info("="*50)
         
-        for idx, result in enumerate(case_results):
+        for idx, result in enumerate(self.case_results):
             case_file = result.get('case_file')
             status = result.get('status')
             suite = result.get('suite_path', 'Unknown')

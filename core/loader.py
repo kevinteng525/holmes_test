@@ -1,8 +1,10 @@
-
 import os
 import glob
+import logging
 from typing import List, Dict
 from mmengine.config import Config
+
+logger = logging.getLogger(__name__)
 
 class SuiteLoader:
     """
@@ -15,15 +17,15 @@ class SuiteLoader:
         """
         suite_cfg = Config.fromfile(suite_path)
         case_root = suite_cfg.get('case_root', '.')
-        
+
         # 简单的 glob 扫描，实际可能需要递归
         # 假设 suite_path 是相对于运行目录的
         # 这里需要处理相对路径问题，暂且假设是相对于 case_root
-        
+
         # 构造搜索模式
         search_pattern = os.path.join(case_root, '**', '*.py')
         all_case_files = glob.glob(search_pattern, recursive=True)
-        
+
         # 过滤逻辑 (Label 过滤)
         # 这里为了演示，简单过滤掉非 case 文件 (比如 __init__.py)
         valid_cases = []
@@ -34,7 +36,7 @@ class SuiteLoader:
         for case_file in all_case_files:
             if os.path.basename(case_file).startswith('__'):
                 continue
-            
+
             # 读取 Case 配置判断 Label
             try:
                 case_cfg = Config.fromfile(case_file)
@@ -49,8 +51,9 @@ class SuiteLoader:
                     continue
                 
                 valid_cases.append(case_file)
-            except Exception:
-                # 忽略无法解析的文件
+            except Exception as e:
+                # 记录详细的加载错误
+                logger.warning(f"Failed to load case file: {case_file}. Error: {e}")
                 pass
                 
         return valid_cases

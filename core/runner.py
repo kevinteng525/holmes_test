@@ -1,8 +1,7 @@
-
 import logging
 from typing import List, Dict
 from mmengine.config import Config
-from core.registry import STEPS, COLLECTORS
+from core.registry import STEPS, COLLECTORS, CHECKERS
 from core.interface import BaseCollector
 from core.context import TestContext
 from core.status import CaseStatus
@@ -26,10 +25,18 @@ class CaseRunner:
 
             # 构建 Step
             try:
-                # 尝试从 STEPS 构建，如果是 Collector 也可能在 STEPS 中（假设 Collector 也是一种 Step）
-                # 或者如果有独立的 COLLECTORS registry，也可以尝试从那里构建，但通常统一在 STEPS 或通过配置区分
-                # 这里假设所有步骤都在 STEPS 中注册，或者我们需要判断是否是 Collector
-                step = STEPS.build(step_cfg)
+                # 遍历注册表列表查找并构建 Step
+                step = None
+                registries = [STEPS, CHECKERS, COLLECTORS]
+                for registry in registries:
+                    if step_type in registry:
+                        step = registry.build(step_cfg)
+                        break
+
+                # 如果都找不到，尝试默认从 STEPS 构建以抛出明确错误
+                if step is None:
+                    step = STEPS.build(step_cfg)
+
             except Exception as e:
                 logger.error(f"Failed to build step {step_type}: {e}")
                 execution_failed = True
@@ -174,10 +181,16 @@ class PlanRunner:
             try:
                 collector_type = collector_cfg.get('type')
                 logger.info(f"Running Plan Collector: {collector_type}")
-                # 优先从 COLLECTORS 构建，如果没有则尝试 STEPS
-                if collector_type in COLLECTORS:
-                    collector = COLLECTORS.build(collector_cfg)
-                else:
+
+                # 遍历注册表列表查找并构建 Collector
+                collector = None
+                registries = [COLLECTORS, STEPS]
+                for registry in registries:
+                    if collector_type in registry:
+                        collector = registry.build(collector_cfg)
+                        break
+
+                if collector is None:
                     collector = STEPS.build(collector_cfg)
 
                 collector.process(plan_context)

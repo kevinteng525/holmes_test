@@ -1,7 +1,7 @@
 metadata = dict(
     name='Demo passed Test2',
     ID='CASE-004',
-    creator='tengkang.teng@alibaba-inc.com'
+    creator='tengkang.tk@alibaba-inc.com'
 )
 labels = ['report_demo']
 

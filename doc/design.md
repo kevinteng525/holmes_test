@@ -46,27 +46,27 @@ graph TD
 
 ## 3. 核心设计亮点 (Design Highlights)
 
-框架采用精简而强大的设计模式，确保扩展性和易用性。
+框架采用精简但灵活的设计模式，确保扩展性和易用性。
 
-### 3.1 统一的 Pipeline 机制
+### 3.1 Pipeline 机制
 所有的测试执行逻辑被抽象为一条线性流水线 (Pipeline)。
 - **原子化**：每个环节（加载模型、推理、对比）都是一个独立的原子步骤。
 - **可编排**：通过 Config 文件灵活调整步骤顺序、增删步骤，无需修改代码。
 - **配置驱动**：Pipeline 的定义完全声明式，支持动态加载。
 
-### 3.2 明确的 Case 抽象 (Step / Checker / Collector)
-我们将 Pipeline 中的节点细分为三类，职责分离：
+### 3.2 Case 抽象 (Step / Checker / Collector)
+Pipeline 中的节点细分为三类，职责分离：
 - **Steps (Action)**：执行动作。如：`ModelLoader`, `EngineCompiler`, `InferenceRunner`。负责产生数据或改变状态。
 - **Checkers (Verification)**：验证结果。如：`NumericsComparator`, `PerformanceChecker`。负责断言，失败会直接影响 Case 状态。
 - **Collectors (Reporting)**：收集数据。如：`JsonResultCollector`, `ConsoleCollector`。无论 Case 成功与否通常都会执行，用于生成报告。
 
-### 3.3 灵活的 Label-Selector 机制
+### 3.3 Label-Selector 机制
 通过标签 (Labels) 实现用例的高效管理与筛选。
-- **Case 打标**：在 Case Config 中定义 `labels=['daily', 'smoke', 'gpu']`。
+- **Case 打标**：在 Case Config 中定义 `labels=['daily', 'checkin', '1.7'，‘2.0’]`。
 - **Suite 筛选**：在 Suite Config 中通过 `include_labels` 和 `exclude_labels` 动态圈选要执行的用例。
 - **场景复用**：同一个 Case 文件可以被不同的 Suite 复用（如 Daily Suite 跑全量，Smoke Suite 只跑核心链路）。
 
-### 3.4 强大的插件化架构 (Plugin System)
+### 3.4 插件化架构 (Plugin System)
 基于 `mmengine.Registry` 实现的插件系统，实现了核心框架与业务逻辑的完全解耦。
 - **Scope 隔离**：支持多级注册表（Registry Scope），不同推理引擎（如 TensorRT, OpenVINO）的插件可以同名共存（`trt.Compiler`, `ov.Compiler`）。
 - **即插即用**：只需安装对应的 Python 包并在配置中引用，即可扩展框架能力。

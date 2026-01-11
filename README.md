@@ -166,3 +166,42 @@ dict(type='demo.Compiler', param='value')
 ```
 
 **注意：** Scope 名称对大小写敏感，请确保 Config 中的 Scope 前缀与 `Registry(scope='...')` 定义的一致。
+
+### 4. 多级 Scope 开发
+
+框架支持任意深度的 Scope 层级（如 Root -> Parent -> Child）。
+
+**定义多级 Registry:**
+
+```python
+# 1. Root Registry (Global)
+from core.registry import STEPS
+
+# 2. Parent Registry (Domain)
+# scope='demo'
+DEMO_STEPS = Registry('demo_steps', scope='demo', parent=STEPS)
+
+# 3. Child Registry (Custom)
+# scope='custom'
+CUSTOM_STEPS = Registry('custom_steps', scope='custom', parent=DEMO_STEPS)
+```
+
+**注册与引用:**
+
+```python
+# 注册到 Child Registry
+@CUSTOM_STEPS.register_module()
+class SpecialRunner(BaseStep): ...
+```
+
+在 Case 配置中，支持自动向上查找或显式指定 Scope：
+
+```python
+pipeline = [
+    # 方式 A: 显式指定 Scope (推荐)
+    dict(type='custom.SpecialRunner'),
+    
+    # 方式 B: 自动向上查找 (如果 Child 中没有，会去 Parent 找)
+    dict(type='demo.Compiler'),
+]
+```

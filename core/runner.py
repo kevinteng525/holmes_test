@@ -5,6 +5,8 @@ from core.registry import STEPS, COLLECTORS, CHECKERS
 from core.interface import BaseCollector
 from core.context import TestContext
 from core.status import CaseStatus
+import traceback
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +67,7 @@ class CaseRunner:
                 step.process(self.context)
             except Exception as e:
                 logger.error(f"Step {step_cfg.get('type')} failed: {e}")
+                traceback.print_exception(type(e), e, e.__traceback__)
                 # 如果是 Collector 失败，记录日志但不中断后续 Collector（通常 Collector 失败不应影响主流程状态，但需记录）
                 # 如果是普通 Step 失败，标记失败
                 if not is_collector:
@@ -136,7 +139,12 @@ class PlanRunner:
                     # 注入 Global Config
                     ctx = TestContext(global_config=self.global_config, case_config=case_cfg)
                     runner = CaseRunner(ctx)
+
+                    start_time = time.time()
                     runner.run(case_cfg.pipeline)
+                    end_time = time.time()
+
+                    case_result['duration'] = end_time - start_time
 
                     # 记录成功结果
                     case_result['status'] = ctx.status
@@ -153,6 +161,8 @@ class PlanRunner:
                     if 'ctx' in locals():
                          case_result['context'] = ctx
                 finally:
+                    if 'duration' not in case_result:
+                        case_result['duration'] = 0.0
                     total_cases += 1
                     results.append(case_result)
 

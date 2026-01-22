@@ -4,7 +4,7 @@ from enum import Enum
 class CaseStatus(Enum):
     PENDING = "PENDING"
     RUNNING = "RUNNING"
-    SUCCESS = "SUCCESS"
+    SUCCESS = "PASSED"
     FAILED = "FAILED"
     ERROR = "ERROR"
     UNKNOWN = "UNKNOWN"

@@ -119,6 +119,16 @@ def list_cases(plan_path, csv_path):
         suites = plan_cfg.get('suites', [])
         global_config = plan_cfg.get('global_config', {})
 
+        # Extract Plan-level info
+        config_files = plan_cfg.get('config_files', {})
+        env_file = plan_cfg.get('env_file', '')
+        # Handle singular/plural mismatch for setup_script(s)
+        setup_scripts = plan_cfg.get('setup_script', plan_cfg.get('setup_scripts', ''))
+
+        env_cfg = plan_cfg.get('environment', {})
+        vm_image = env_cfg.get('vm_image', '') if isinstance(env_cfg, dict) else ''
+        docker_image = env_cfg.get('docker_image', '') if isinstance(env_cfg, dict) else ''
+
         logger.info(f"Found {len(suites)} suites in plan.")
 
         from core.loader import SuiteLoader
@@ -142,12 +152,24 @@ def list_cases(plan_path, csv_path):
                             case_cfg = Config.fromfile(case_file)
                             metadata = case_cfg.get('metadata', {})
 
+                            # Extract Case-level info
+                            labels = case_cfg.get('labels', [])
+                            labels_str = '|'.join(labels) if isinstance(labels, list) else str(labels)
+                            cmd = f"python run.py case {case_file}"
+
                             # 收集数据
                             case_data_list.append({
                                 'case ID': metadata.get('ID', ''),
                                 'name': metadata.get('name', ''),
                                 'suite': suite_path,
                                 'case path': case_file,
+                                'labels': labels_str,
+                                'cmd': cmd,
+                                'config_files': json.dumps(config_files, ensure_ascii=False),
+                                'env_file': env_file,
+                                'setup_scripts': setup_scripts,
+                                'vm_image': vm_image,
+                                'docker_image': docker_image,
                                 'global config': json.dumps(global_config, ensure_ascii=False)
                             })
                         except Exception as e:
@@ -158,6 +180,13 @@ def list_cases(plan_path, csv_path):
                                 'name': 'ERROR',
                                 'suite': suite_path,
                                 'case path': case_file,
+                                'labels': '',
+                                'cmd': f"python run.py case {case_file}",
+                                'config_files': json.dumps(config_files, ensure_ascii=False),
+                                'env_file': env_file,
+                                'setup_scripts': setup_scripts,
+                                'vm_image': vm_image,
+                                'docker_image': docker_image,
                                 'global config': json.dumps(global_config, ensure_ascii=False)
                             })
 
@@ -175,7 +204,7 @@ def list_cases(plan_path, csv_path):
                     os.makedirs(output_dir)
 
                 with open(csv_path, 'w', newline='', encoding='utf-8') as csvfile:
-                    fieldnames = ['case ID', 'name', 'suite', 'case path', 'global config']
+                    fieldnames = ['case ID', 'name', 'suite', 'case path', 'labels', 'cmd', 'config_files', 'env_file', 'setup_scripts', 'vm_image', 'docker_image', 'global config']
                     writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 
                     writer.writeheader()

@@ -127,7 +127,9 @@ class PlanRunner:
                     'suite_path': suite_path,
                     'metadata': {},
                     'status': CaseStatus.UNKNOWN,
-                    'context': None
+                    'context': None,
+                    'error_message': None,
+                    'error_traceback': None
                 }
 
                 try:
@@ -155,6 +157,9 @@ class PlanRunner:
                     failed_cases += 1
                     # 记录失败结果
                     case_result['status'] = CaseStatus.FAILED
+                    case_result['error_message'] = str(e)
+                    case_result['error_traceback'] = traceback.format_exc()
+
                     # ctx 可能在 runner.run 中已经创建，尝试获取
                     # 注意：如果 Config.fromfile 失败，ctx 可能不存在
                     # 这里简单处理，如果 ctx 存在则记录

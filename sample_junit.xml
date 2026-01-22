@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="Example Test Suite">
+    <testsuite name="Test Suite 1" tests="3" failures="1" errors="0" skipped="0" timestamp="2023-04-01T10:00:00" time="123.456">
+        <testcase name="Test Case 1" classname="com.example.TestClass1" time="32.123">
+            <failure message="Assertion failed">Expected true but was false</failure>
+        </testcase>
+        <testcase name="Test Case 2" classname="com.example.TestClass1" time="45.678"/>
+        <testcase name="Test Case 3" classname="com.example.TestClass2" time="45.891">
+            <skipped>Skipped intentionally for demonstration</skipped>
+        </testcase>
+    </testsuite>
+    <testsuite name="Test Suite 2" tests="2" failures="0" errors="1" skipped="0" timestamp="2023-04-01T10:15:00" time="98.765">
+        <testcase name="Test Case 4" classname="com.example.TestClass3" time="56.789">
+            <error message="NullPointerException">Null pointer exception in method XYZ</error>
+        </testcase>
+        <testcase name="Test Case 5" classname="com.example.TestClass3" time="42.123"/>
+    </testsuite>
+</testsuites>

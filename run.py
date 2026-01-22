@@ -67,6 +67,10 @@ def plan(plan_path):
         # 1. 加载 Plan 配置
         plan_cfg = Config.fromfile(plan_path)
 
+        # 注入 Plan Name (基于文件名)
+        plan_name = os.path.splitext(os.path.basename(plan_path))[0]
+        plan_cfg.setdefault('plan_name', plan_name)
+
         # 2. 检查环境配置 & Docker 启动逻辑
         env_cfg = plan_cfg.get('environment')
         in_docker = os.environ.get('IN_DOCKER') == '1'

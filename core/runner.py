@@ -152,6 +152,13 @@ class PlanRunner:
                     case_result['status'] = ctx.status
                     case_result['context'] = ctx
 
+                    # 如果状态是失败但没有抛出异常（例如 Checker 设置了 FAILED），补充错误信息
+                    if ctx.status in [CaseStatus.FAILED, CaseStatus.ERROR]:
+                        failed_cases += 1 # 确保失败计数正确
+                        if case_result['error_message'] is None:
+                            case_result['error_message'] = f"Case finished with status {ctx.status} but no exception was raised."
+                            case_result['error_traceback'] = "No traceback available. The case status was set to FAILED/ERROR during execution."
+
                 except Exception as e:
                     logger.error(f"  -> Case Failed: {case_file} | Error: {e}")
                     failed_cases += 1

@@ -43,6 +43,8 @@ class PlanSummaryCollector(BaseCollector):
             # 单行显示：ID, Suite, File, Status
             logger.info(f"Case {idx+1}: ID={case_id} | Suite={suite} | File={case_file} | Status=[{status}]")
 
+
+
         logger.info("-" * 50)
         logger.info(f"Total: {total} | Passed: {passed} | Failed: {failed} | Errors: {errors} | Skipped: {skipped}")
         logger.info("="*50 + "\n")
@@ -93,8 +95,13 @@ class PlanSummaryCollector(BaseCollector):
                 duration = result.get('duration', 0.0)
 
                 # Retrieve error info captured in runner
-                error_msg = result.get('error_message', 'Case Failed')
-                error_tb = result.get('error_traceback', '')
+                error_msg = result.get('error_message')
+                if error_msg is None:
+                    error_msg = 'Case Failed'
+
+                error_tb = result.get('error_traceback')
+                if error_tb is None:
+                    error_tb = ''
 
                 case_id = metadata.get('ID', 'N/A')
                 case_name = metadata.get('name', case_file)

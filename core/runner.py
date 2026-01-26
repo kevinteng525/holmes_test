@@ -65,6 +65,12 @@ class CaseRunner:
 
                 logger.info(f"Running Step: {step_type}")
                 step.process(self.context)
+
+                # 如果 Step 执行后状态变为失败，且不是 Collector，则标记执行失败，以跳过后续步骤
+                if not is_collector and self.context.status in [CaseStatus.FAILED, CaseStatus.ERROR]:
+                    execution_failed = True
+                    logger.error(f"Step {step_type} failed with status: {self.context.status}")
+
             except Exception as e:
                 logger.error(f"Step {step_cfg.get('type')} failed: {e}")
                 traceback.print_exception(type(e), e, e.__traceback__)

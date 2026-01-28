@@ -149,10 +149,10 @@ class PlanRunner:
                     runner = CaseRunner(ctx)
 
                     start_time = time.time()
-                    runner.run(case_cfg.pipeline)
-                    end_time = time.time()
-
-                    case_result['duration'] = end_time - start_time
+                    try:
+                        runner.run(case_cfg.pipeline)
+                    finally:
+                        case_result['duration'] = time.time() - start_time
 
                     # 记录成功结果
                     case_result['status'] = ctx.status

@@ -110,6 +110,80 @@ def plan(plan_path):
         logger.error(f"Plan execution failed: {e}")
         sys.exit(1)
 
+def _merge_config_field(case_cfg, suite_cfg, plan_cfg, field_name: str, default=None):
+    """
+    按优先级合并配置字段：Case > Suite > Plan
+
+    Args:
+        case_cfg: Case 配置
+        suite_cfg: Suite 配置
+        plan_cfg: Plan 配置
+        field_name: 字段名
+        default: 默认值
+
+    Returns:
+        合并后的字段值
+    """
+    # 优先级：Case > Suite > Plan
+    if case_cfg and field_name in case_cfg:
+        return case_cfg.get(field_name)
+    if suite_cfg and field_name in suite_cfg:
+        return suite_cfg.get(field_name)
+    if plan_cfg and field_name in plan_cfg:
+        return plan_cfg.get(field_name)
+    return default
+
+
+def _deep_merge_dicts(base: dict, override: dict) -> dict:
+    """
+    深度合并两个字典，override 中的值会覆盖 base 中的值
+    """
+    if base is None:
+        base = {}
+    if override is None:
+        override = {}
+
+    result = dict(base).copy()
+    for key, value in override.items():
+        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+            result[key] = _deep_merge_dicts(result[key], value)
+        else:
+            result[key] = value
+    return result
+
+
+def _merge_hierarchical_config(case_cfg, suite_cfg, plan_cfg, field_name: str, default=None):
+    """
+    按优先级深度合并配置字段（用于字典类型）：Plan -> Suite -> Case（后者覆盖前者）
+
+    Args:
+        case_cfg: Case 配置
+        suite_cfg: Suite 配置
+        plan_cfg: Plan 配置
+        field_name: 字段名
+        default: 默认值
+
+    Returns:
+        合并后的字段值
+    """
+    plan_value = plan_cfg.get(field_name, {}) if plan_cfg else {}
+    suite_value = suite_cfg.get(field_name, {}) if suite_cfg else {}
+    case_value = case_cfg.get(field_name, {}) if case_cfg else {}
+
+    if not isinstance(plan_value, dict):
+        plan_value = {}
+    if not isinstance(suite_value, dict):
+        suite_value = {}
+    if not isinstance(case_value, dict):
+        case_value = {}
+
+    # 按优先级合并：Plan -> Suite -> Case
+    result = _deep_merge_dicts(plan_value, suite_value)
+    result = _deep_merge_dicts(result, case_value)
+
+    return result if result else default
+
+
 @cli.command()
 @click.argument('plan_path')
 @click.option('--csv', 'csv_path', help='Dump result to CSV file')
@@ -121,17 +195,6 @@ def list_cases(plan_path, csv_path):
         # 1. 加载 Plan 配置
         plan_cfg = Config.fromfile(plan_path)
         suites = plan_cfg.get('suites', [])
-        global_config = plan_cfg.get('global_config', {})
-
-        # Extract Plan-level info
-        config_files = plan_cfg.get('config_files', {})
-        env_file = plan_cfg.get('env_file', '')
-        # Handle singular/plural mismatch for setup_script(s)
-        setup_scripts = plan_cfg.get('setup_script', plan_cfg.get('setup_scripts', ''))
-
-        env_cfg = plan_cfg.get('environment', {})
-        vm_image = env_cfg.get('vm_image', '') if isinstance(env_cfg, dict) else ''
-        docker_image = env_cfg.get('docker_image', '') if isinstance(env_cfg, dict) else ''
 
         logger.info(f"Found {len(suites)} suites in plan.")
 
@@ -143,7 +206,8 @@ def list_cases(plan_path, csv_path):
         for suite_path in suites:
             print(f"\nSuite: {suite_path}")
             try:
-                case_files = SuiteLoader.load_cases_from_suite(suite_path)
+                # 使用新方法同时获取 case 列表和 suite 配置
+                case_files, suite_cfg = SuiteLoader.load_cases_with_config(suite_path)
                 if not case_files:
                      print("  (No cases found)")
                 for case_file in case_files:
@@ -161,6 +225,21 @@ def list_cases(plan_path, csv_path):
                             labels_str = '|'.join(labels) if isinstance(labels, list) else str(labels)
                             cmd = f"python run.py case {case_file}"
 
+                            # 按优先级合并配置：Case > Suite > Plan
+                            # 对于字典类型使用深度合并
+                            merged_config_files = _merge_hierarchical_config(case_cfg, suite_cfg, plan_cfg, 'config_files', {})
+                            merged_global_config = _merge_hierarchical_config(case_cfg, suite_cfg, plan_cfg, 'global_config', {})
+                            merged_environment = _merge_hierarchical_config(case_cfg, suite_cfg, plan_cfg, 'environment', {})
+
+                            # 对于字符串类型使用简单覆盖
+                            merged_env_file = _merge_config_field(case_cfg, suite_cfg, plan_cfg, 'env_file', '')
+                            merged_setup_script = _merge_config_field(case_cfg, suite_cfg, plan_cfg, 'setup_script',
+                                                    _merge_config_field(case_cfg, suite_cfg, plan_cfg, 'setup_scripts', ''))
+
+                            # 从合并后的 environment 中提取镜像信息
+                            vm_image = merged_environment.get('vm_image', '') if isinstance(merged_environment, dict) else ''
+                            docker_image = merged_environment.get('docker_image', '') if isinstance(merged_environment, dict) else ''
+
                             # 收集数据
                             case_data_list.append({
                                 'case ID': metadata.get('ID', ''),
@@ -169,16 +248,24 @@ def list_cases(plan_path, csv_path):
                                 'case path': case_file,
                                 'labels': labels_str,
                                 'cmd': cmd,
-                                'config_files': json.dumps(config_files, ensure_ascii=False),
-                                'env_file': env_file,
-                                'setup_scripts': setup_scripts,
+                                'config_files': json.dumps(merged_config_files, ensure_ascii=False),
+                                'env_file': merged_env_file,
+                                'setup_scripts': merged_setup_script,
                                 'vm_image': vm_image,
                                 'docker_image': docker_image,
-                                'global config': json.dumps(global_config, ensure_ascii=False)
+                                'global config': json.dumps(merged_global_config, ensure_ascii=False)
                             })
                         except Exception as e:
                             logger.error(f"Failed to load details for case {case_file}: {e}")
-                            # 即使加载失败也记录基本信息
+                            # 即使加载失败也记录基本信息，使用 Plan 级别配置作为后备
+                            plan_config_files = plan_cfg.get('config_files', {})
+                            plan_env_file = plan_cfg.get('env_file', '')
+                            plan_setup_scripts = plan_cfg.get('setup_script', plan_cfg.get('setup_scripts', ''))
+                            plan_env_cfg = plan_cfg.get('environment', {})
+                            plan_vm_image = plan_env_cfg.get('vm_image', '') if isinstance(plan_env_cfg, dict) else ''
+                            plan_docker_image = plan_env_cfg.get('docker_image', '') if isinstance(plan_env_cfg, dict) else ''
+                            plan_global_config = plan_cfg.get('global_config', {})
+
                             case_data_list.append({
                                 'case ID': 'ERROR',
                                 'name': 'ERROR',
@@ -186,12 +273,12 @@ def list_cases(plan_path, csv_path):
                                 'case path': case_file,
                                 'labels': '',
                                 'cmd': f"python run.py case {case_file}",
-                                'config_files': json.dumps(config_files, ensure_ascii=False),
-                                'env_file': env_file,
-                                'setup_scripts': setup_scripts,
-                                'vm_image': vm_image,
-                                'docker_image': docker_image,
-                                'global config': json.dumps(global_config, ensure_ascii=False)
+                                'config_files': json.dumps(plan_config_files, ensure_ascii=False),
+                                'env_file': plan_env_file,
+                                'setup_scripts': plan_setup_scripts,
+                                'vm_image': plan_vm_image,
+                                'docker_image': plan_docker_image,
+                                'global config': json.dumps(plan_global_config, ensure_ascii=False)
                             })
 
             except Exception as e:

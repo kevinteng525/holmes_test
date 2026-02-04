@@ -9,6 +9,7 @@ from core.interface import BaseCollector
 from core.context import TestContext
 from core.status import CaseStatus
 
+from core.utils import generate_case_id
 logger = logging.getLogger(__name__)
 
 @DEMO_COLLECTORS.register_module()
@@ -36,9 +37,9 @@ class PlanSummaryCollector(BaseCollector):
             case_file = result.get('case_file')
             status = result.get('status')
             suite = result.get('suite_path', 'Unknown')
-            metadata = result.get('metadata', {})
 
-            case_id = metadata.get('ID', 'N/A')
+            # 自动生成 Case ID
+            case_id = generate_case_id(case_file)
 
             # 单行显示：ID, Suite, File, Status
             logger.info(f"Case {idx+1}: ID={case_id} | Suite={suite} | File={case_file} | Status=[{status}]")
@@ -103,7 +104,8 @@ class PlanSummaryCollector(BaseCollector):
                 if error_tb is None:
                     error_tb = ''
 
-                case_id = metadata.get('ID', 'N/A')
+                # 自动生成 Case ID
+                case_id = generate_case_id(case_file)
                 case_name = metadata.get('name', case_file)
 
                 # Classname should be the case file path in dot notation

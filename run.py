@@ -25,7 +25,7 @@ def cli():
     """Holmes - 通用自动化测试框架"""
     pass
 
-from core.utils import parse_options
+from core.utils import parse_options, generate_case_id
 from core.runner import PlanRunner  # Ensure PlanRunner is imported if not already
 
 @cli.command()
@@ -240,9 +240,12 @@ def list_cases(plan_path, csv_path):
                             vm_image = merged_environment.get('vm_image', '') if isinstance(merged_environment, dict) else ''
                             docker_image = merged_environment.get('docker_image', '') if isinstance(merged_environment, dict) else ''
 
+                            # 自动生成 Case ID
+                            auto_case_id = generate_case_id(case_file)
+
                             # 收集数据
                             case_data_list.append({
-                                'case ID': metadata.get('ID', ''),
+                                'case ID': auto_case_id,
                                 'name': metadata.get('name', ''),
                                 'suite': suite_path,
                                 'case path': case_file,
@@ -266,8 +269,11 @@ def list_cases(plan_path, csv_path):
                             plan_docker_image = plan_env_cfg.get('docker_image', '') if isinstance(plan_env_cfg, dict) else ''
                             plan_global_config = plan_cfg.get('global_config', {})
 
+                            # 即使加载失败也生成 Case ID
+                            auto_case_id = generate_case_id(case_file)
+
                             case_data_list.append({
-                                'case ID': 'ERROR',
+                                'case ID': auto_case_id,
                                 'name': 'ERROR',
                                 'suite': suite_path,
                                 'case path': case_file,

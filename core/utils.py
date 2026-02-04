@@ -1,5 +1,53 @@
-
+import os
+import hashlib
 from typing import Dict, List
+
+
+def generate_case_id(case_file: str, case_root: str = 'test/cases') -> str:
+    """
+    根据 Case 文件路径自动生成 Case ID
+
+    Args:
+        case_file: Case 文件路径，如 'test/cases/demo/pass_case_1.py'
+        case_root: Case 根目录，默认为 'test/cases'
+
+    Returns:
+        生成的 Case ID，格式为 '前缀-xxxxxxxxxxxxxxxx'，如 'demo-a1b2c3d4e5f6g7h8'
+        前缀为目录路径（用 '-' 连接），后缀为文件名的 16 位哈希值
+    """
+    if not case_file:
+        return 'unknown'
+
+    # 规范化路径
+    case_file = os.path.normpath(case_file)
+    case_root = os.path.normpath(case_root)
+
+    # 获取相对于 case_root 的路径
+    if case_file.startswith(case_root):
+        relative_path = case_file[len(case_root):].lstrip(os.sep)
+    else:
+        relative_path = case_file
+
+    # 分离目录和文件名
+    dir_path = os.path.dirname(relative_path)
+    file_name = os.path.basename(relative_path)
+
+    # 移除 .py 扩展名
+    if file_name.endswith('.py'):
+        file_name = file_name[:-3]
+
+    # 生成文件名的 8 位哈希值（使用 MD5）
+    file_hash = hashlib.md5(file_name.encode('utf-8')).hexdigest()[:16]
+
+    # 构建前缀（目录路径用 '-' 连接）
+    if dir_path:
+        prefix = dir_path.replace(os.sep, '-')
+        case_id = f"{prefix}-{file_hash}"
+    else:
+        case_id = file_hash
+
+    return case_id
+
 
 def parse_options(options_str: str) -> Dict:
     """

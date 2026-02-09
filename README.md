@@ -47,10 +47,10 @@ python run.py list-cases test/plans/demo_plan.py --csv output.csv
 
 ### CSV 导出说明
 
-导出 CSV 时会自动在同目录下创建 `exec_config` 文件夹，并生成执行配置 YAML 文件：
+导出 CSV 时会自动在同目录下创建 `exec_config/<plan_name>` 文件夹，并生成执行配置 YAML 文件：
 
-- `exec_config/default.yaml`: Plan 级别的默认配置
-- `exec_config/<suite_name>.yaml`: Suite 级别的配置（如果 Suite 定义了执行配置字段）
+- `exec_config/<plan_name>/default.yaml`: Plan 级别的默认配置
+- `exec_config/<plan_name>/<suite_name>.yaml`: Suite 级别的配置（如果 Suite 定义了执行配置字段）
 
 **CSV 列说明：**
 
@@ -66,38 +66,44 @@ python run.py list-cases test/plans/demo_plan.py --csv output.csv
 | `cmd` | 执行命令 |
 | `exec_config` | 执行配置 YAML 文件路径 |
 
-**生成的 YAML 文件格式示例：**
+**生成的 YAML 文件格式示例（K8s CRD 格式）：**
 
 ```yaml
-environment:
-  run_at: vm+docker
-  base_image: base_vm_image.qcow2
-  docker_id: torch2.6-cuda12.3-ubuntu22.04-py312
-  packages:
-    - PPU_SDK_Torch_Holmes_CUDA12.9.0_Ubuntu2404_PyTorch2.9.0_py312.tar.gz
-  dependencies:
+apiVersion: test.eng.t-head.cn/v1
+kind: TestExecConfig
+metadata:
+  name: demo_suite          # Suite 名称
+  namespace: demo_plan      # Plan 名称
+spec:
+  environment:
+    run_at: vm+docker
+    base_image: base_vm_image.qcow2
+    docker_id: torch2.6-cuda12.3-ubuntu22.04-py312
     packages:
-      - python3.12
-      - python3.12-dev
-    pypi_packages:
-      - pip==23.1.2
-      - setuptools==67.6.1
-      - wheel==0.40.0
-runtime:
-  hw_type: ppu
-  driver: umd
-  setup_driver: true
-  resource:
-    cpu: 8
-    memory: 16
-    ppu: 1
-    gpu: 0
-  labels: OAM-810E
-config_files:
-  cmodel_cfg: environments/holmes/configs/cmodel/default.cfg
-  settings_cfg: environments/holmes/configs/settings/default.cfg
-env_file: environments/holmes/envs/default.env
-setup_script: environments/holmes/setup_scripts/daily_setup.sh
+      - PPU_SDK_Torch_Holmes_CUDA12.9.0_Ubuntu2404_PyTorch2.9.0_py312.tar.gz
+    dependencies:
+      packages:
+        - python3.12
+        - python3.12-dev
+      pypi_packages:
+        - pip==23.1.2
+        - setuptools==67.6.1
+        - wheel==0.40.0
+  runtime:
+    hw_type: ppu
+    driver: umd
+    setup_driver: true
+    resource:
+      cpu: 8
+      memory: 16
+      ppu: 1
+      gpu: 0
+    labels: OAM-810E
+  config_files:
+    cmodel_cfg: environments/holmes/configs/cmodel/default.cfg
+    settings_cfg: environments/holmes/configs/settings/default.cfg
+  env_file: environments/holmes/envs/default.env
+  setup_script: environments/holmes/setup_scripts/daily_setup.sh
 ```
 
 ### 2. Docker 运行

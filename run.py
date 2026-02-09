@@ -47,8 +47,11 @@ def case(case_path, env, options):
             logger.info(f"Overriding options: {override_opts}")
             cfg.merge_from_dict(override_opts)
 
-        # 3. 初始化 Context
+        # 3. 初始化 Context，注入 Case ID
         ctx = TestContext(case_config=cfg)
+        auto_case_id = generate_case_id(case_path)
+        ctx.set('case_id', auto_case_id)
+        ctx.set('case_file', case_path)
 
         # 4. 执行
         runner = CaseRunner(ctx)
@@ -236,9 +239,9 @@ def _merge_docker_field(base_env: dict, override_env: dict) -> tuple:
     return (None, None)
 
 
-def _build_exec_config_dict(plan_environment, suite_environment, merged_runtime, merged_config_files, merged_env_file, merged_setup_script) -> dict:
+def _build_exec_config_dict(plan_environment, suite_environment, merged_runtime, merged_config_files, merged_env_file, merged_setup_script, plan_name: str = '', suite_name: str = '') -> dict:
     """
-    根据合并后的配置构建 exec_config 字典结构
+    根据合并后的配置构建 K8s CRD 格式的 exec_config 字典结构
 
     Args:
         plan_environment: Plan 级别的 environment 配置
@@ -247,8 +250,11 @@ def _build_exec_config_dict(plan_environment, suite_environment, merged_runtime,
         merged_config_files: 合并后的 config_files 配置
         merged_env_file: 合并后的 env_file 配置
         merged_setup_script: 合并后的 setup_script 配置
+        plan_name: Plan 名称，用于 metadata.namespace
+        suite_name: Suite 名称，用于 metadata.name
     """
-    exec_config = {}
+    # 构建 spec 部分
+    spec = {}
 
     # 合并 environment（除了 docker_id/docker_image 之外的字段使用普通合并）
     merged_environment = _deep_merge_dicts(plan_environment or {}, suite_environment or {})
@@ -276,7 +282,7 @@ def _build_exec_config_dict(plan_environment, suite_environment, merged_runtime,
         if merged_environment.get('dependencies'):
             env_section['dependencies'] = _convert_to_plain_dict(merged_environment.get('dependencies'))
         if env_section:
-            exec_config['environment'] = env_section
+            spec['environment'] = env_section
 
     # runtime 部分
     if merged_runtime:
@@ -293,26 +299,37 @@ def _build_exec_config_dict(plan_environment, suite_environment, merged_runtime,
         if merged_runtime.get('labels'):
             runtime_section['labels'] = merged_runtime.get('labels')
         if runtime_section:
-            exec_config['runtime'] = runtime_section
+            spec['runtime'] = runtime_section
 
     # config_files 部分：转换为普通字典
     if merged_config_files:
-        exec_config['config_files'] = _convert_to_plain_dict(merged_config_files)
+        spec['config_files'] = _convert_to_plain_dict(merged_config_files)
 
     # env_file 部分
     if merged_env_file:
-        exec_config['env_file'] = merged_env_file
+        spec['env_file'] = merged_env_file
 
     # setup_script 部分
     if merged_setup_script:
-        exec_config['setup_script'] = merged_setup_script
+        spec['setup_script'] = merged_setup_script
+
+    # 构建完整的 K8s CRD 格式
+    exec_config = {
+        'apiVersion': 'test.eng.t-head.cn/v1',
+        'kind': 'TestExecConfig',
+        'metadata': {
+            'name': suite_name or 'default',
+            'namespace': plan_name or 'default'
+        },
+        'spec': spec
+    }
 
     return exec_config
 
 
 def _generate_exec_config_files(csv_path, plan_cfg, suite_configs: dict) -> dict:
     """
-    生成 exec_config YAML 文件
+    生成 exec_config YAML 文件（K8s CRD 格式）
 
     Args:
         csv_path: CSV 文件路径，用于确定 exec_config 文件夹位置
@@ -322,9 +339,13 @@ def _generate_exec_config_files(csv_path, plan_cfg, suite_configs: dict) -> dict
     Returns:
         dict: {suite_path 或 'default': yaml_file_path} 的映射
     """
-    # 创建 exec_config 文件夹
+    # 获取 Plan 名称（用于 metadata.namespace 和子文件夹名称）
+    plan_metadata = plan_cfg.get('metadata', {})
+    plan_name = plan_metadata.get('name') or 'default'
+
+    # 创建 exec_config/<plan_name> 文件夹
     csv_dir = os.path.dirname(csv_path) if os.path.dirname(csv_path) else '.'
-    exec_config_dir = os.path.join(csv_dir, 'exec_config')
+    exec_config_dir = os.path.join(csv_dir, 'exec_config', plan_name)
     if not os.path.exists(exec_config_dir):
         os.makedirs(exec_config_dir)
 
@@ -338,7 +359,8 @@ def _generate_exec_config_files(csv_path, plan_cfg, suite_configs: dict) -> dict
     plan_setup_script = plan_cfg.get('setup_script', '')
 
     default_exec_config = _build_exec_config_dict(
-        plan_environment, None, plan_runtime, plan_config_files, plan_env_file, plan_setup_script
+        plan_environment, None, plan_runtime, plan_config_files, plan_env_file, plan_setup_script,
+        plan_name=plan_name, suite_name='default'
     )
 
     default_yaml_path = os.path.join(exec_config_dir, 'default.yaml')
@@ -348,6 +370,10 @@ def _generate_exec_config_files(csv_path, plan_cfg, suite_configs: dict) -> dict
 
     # 2. 为每个有执行配置的 Suite 生成 YAML 文件
     for suite_path, suite_cfg in suite_configs.items():
+        # 获取 Suite 名称
+        suite_metadata = suite_cfg.get('metadata', {}) if suite_cfg else {}
+        suite_name = suite_metadata.get('name') or os.path.splitext(os.path.basename(suite_path))[0]
+
         if not _has_exec_config_fields(suite_cfg):
             # Suite 没有定义执行配置字段，使用 default
             exec_config_mapping[suite_path] = default_yaml_path
@@ -368,12 +394,10 @@ def _generate_exec_config_files(csv_path, plan_cfg, suite_configs: dict) -> dict
         merged_setup_script = suite_cfg.get('setup_script') if suite_cfg and suite_cfg.get('setup_script') else plan_cfg.get('setup_script', '')
 
         suite_exec_config = _build_exec_config_dict(
-            plan_environment, suite_environment, merged_runtime, merged_config_files, merged_env_file, merged_setup_script
+            plan_environment, suite_environment, merged_runtime, merged_config_files, merged_env_file, merged_setup_script,
+            plan_name=plan_name, suite_name=suite_name
         )
 
-        # 使用 suite 的 metadata.name 或文件名作为 YAML 文件名
-        suite_metadata = suite_cfg.get('metadata', {}) if suite_cfg else {}
-        suite_name = suite_metadata.get('name') or os.path.splitext(os.path.basename(suite_path))[0]
         suite_yaml_path = os.path.join(exec_config_dir, f'{suite_name}.yaml')
 
         with open(suite_yaml_path, 'w', encoding='utf-8') as f:

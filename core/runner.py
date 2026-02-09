@@ -5,6 +5,7 @@ from core.registry import STEPS, COLLECTORS, CHECKERS
 from core.interface import BaseCollector
 from core.context import TestContext
 from core.status import CaseStatus
+from core.utils import generate_case_id
 import traceback
 import time
 
@@ -144,8 +145,11 @@ class PlanRunner:
                     # 提取 Metadata (直接从配置字典中读取)
                     case_result['metadata'] = case_cfg.get('metadata', {})
 
-                    # 注入 Global Config
+                    # 注入 Global Config 和 Case ID
                     ctx = TestContext(global_config=self.global_config, case_config=case_cfg)
+                    auto_case_id = generate_case_id(case_file)
+                    ctx.set('case_id', auto_case_id)
+                    ctx.set('case_file', case_file)
                     runner = CaseRunner(ctx)
 
                     start_time = time.time()

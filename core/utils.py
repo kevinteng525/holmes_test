@@ -3,13 +3,14 @@ import hashlib
 from typing import Dict, List
 
 
-def generate_case_id(case_file: str, case_root: str = 'test/cases') -> str:
+def generate_case_id(case_file: str, case_roots: List[str] = None) -> str:
     """
     根据 Case 文件路径自动生成 Case ID
 
     Args:
         case_file: Case 文件路径，如 'test/cases/demo/pass_case_1.py'
-        case_root: Case 根目录，默认为 'test/cases'
+        case_roots: Case 根目录列表，按优先级排序，默认为 ['v2/test/cases', 'test/cases']
+                    优先匹配列表中靠前的根目录
 
     Returns:
         生成的 Case ID，格式为 '前缀-xxxxxxxxxxxxxxxx'，如 'demo-a1b2c3d4e5f6g7h8'
@@ -18,15 +19,19 @@ def generate_case_id(case_file: str, case_root: str = 'test/cases') -> str:
     if not case_file:
         return 'unknown'
 
+    if case_roots is None:
+        case_roots = ['v2/test/cases', 'test/cases']
+
     # 规范化路径
     case_file = os.path.normpath(case_file)
-    case_root = os.path.normpath(case_root)
 
-    # 获取相对于 case_root 的路径
-    if case_file.startswith(case_root):
-        relative_path = case_file[len(case_root):].lstrip(os.sep)
-    else:
-        relative_path = case_file
+    # 尝试匹配每个 case_root，优先匹配靠前的根目录
+    relative_path = case_file
+    for case_root in case_roots:
+        normalized_root = os.path.normpath(case_root)
+        if case_file.startswith(normalized_root):
+            relative_path = case_file[len(normalized_root):].lstrip(os.sep)
+            break
 
     # 分离目录和文件名
     dir_path = os.path.dirname(relative_path)
